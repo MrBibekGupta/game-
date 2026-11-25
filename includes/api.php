@@ -1,11 +1,69 @@
 <?php
 
-
-function getBananaQuestion()
+/**
+ * Save a valid puzzle response to the local JSON cache file.
+ */
+function savePuzzleCache(string $cacheFile, string $question, int $solution): void
 {
-    $apiUrl = "http://marcconrad.com/uob/banana/api.php?out=json&base64=no";
+    $cacheDir = dirname($cacheFile);
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0755, true);
+    }
 
-    //  cURL is tool php use to communicate with external server
+    $payload = json_encode([
+        "question" => $question,
+        "solution" => $solution,
+        "cached_at" => date("c")
+    ], JSON_PRETTY_PRINT);
+
+    if ($payload !== false) {
+        @file_put_contents($cacheFile, $payload, LOCK_EX);
+    }
+}
+
+/**
+ * Load and validate a previously cached puzzle response.
+ */
+function loadPuzzleCache(string $cacheFile): ?array
+{
+    if (!is_file($cacheFile) || !is_readable($cacheFile)) {
+        return null;
+    }
+
+    $raw = @file_get_contents($cacheFile);
+    if ($raw === false || $raw === "") {
+        return null;
+    }
+
+    $data = json_decode($raw, true);
+    if (
+        json_last_error() !== JSON_ERROR_NONE ||
+        !is_array($data) ||
+        empty($data["question"]) ||
+        !isset($data["solution"])
+    ) {
+        return null;
+    }
+
+    return [
+        "success" => true,
+        "question" => (string) $data["question"],
+        "solution" => (int) $data["solution"],
+        "cached" => true
+    ];
+}
+
+/**
+ * Fetch a puzzle from the external Banana API with local cache fallback.
+ */
+function getBananaQuestion(
+    string $apiUrl = "http://marcconrad.com/uob/banana/api.php?out=json&base64=no",
+    ?string $cacheFile = null
+): array {
+    if ($cacheFile === null) {
+        $cacheFile = __DIR__ . "/../cache/last_puzzle.json";
+    }
+
     $curl = curl_init();
 
     curl_setopt_array($curl, [
@@ -14,25 +72,22 @@ function getBananaQuestion()
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => 10,
-
-        // User agent
         CURLOPT_USERAGENT => "Banana Game PHP",
-
-        // Request JSON
         CURLOPT_HTTPHEADER => [
             "Accept: application/json"
         ]
     ]);
 
-    // php Send request
     $response = curl_exec($curl);
 
-    // Check cURL error
     if ($response === false) {
-
         $error = curl_error($curl);
-
         curl_close($curl);
+
+        $cached = loadPuzzleCache($cacheFile);
+        if ($cached !== null) {
+            return $cached;
+        }
 
         return [
             "success" => false,
@@ -40,13 +95,14 @@ function getBananaQuestion()
         ];
     }
 
-    // Get HTTP status code
     $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
     curl_close($curl);
 
-    // Check HTTP status
     if ($httpCode !== 200) {
+        $cached = loadPuzzleCache($cacheFile);
+        if ($cached !== null) {
+            return $cached;
+        }
 
         return [
             "success" => false,
@@ -54,11 +110,13 @@ function getBananaQuestion()
         ];
     }
 
-    // Convert JSON response to PHP array
     $data = json_decode($response, true);
 
-    // Check JSON error
     if (json_last_error() !== JSON_ERROR_NONE) {
+        $cached = loadPuzzleCache($cacheFile);
+        if ($cached !== null) {
+            return $cached;
+        }
 
         return [
             "success" => false,
@@ -66,12 +124,15 @@ function getBananaQuestion()
         ];
     }
 
-    // Make sure required data exists
     if (
         !is_array($data) ||
-        !isset($data["question"]) ||
+        empty($data["question"]) ||
         !isset($data["solution"])
     ) {
+        $cached = loadPuzzleCache($cacheFile);
+        if ($cached !== null) {
+            return $cached;
+        }
 
         return [
             "success" => false,
@@ -79,10 +140,15 @@ function getBananaQuestion()
         ];
     }
 
-    // Return clean data
+    $question = (string) $data["question"];
+    $solution = (int) $data["solution"];
+
+    savePuzzleCache($cacheFile, $question, $solution);
+
     return [
         "success" => true,
-        "question" => $data["question"],
-        "solution" => (int) $data["solution"]
+        "question" => $question,
+        "solution" => $solution,
+        "cached" => false
     ];
 }
