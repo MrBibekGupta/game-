@@ -16,7 +16,7 @@ $userId = (int) $_SESSION["user_id"];
 $username = $_SESSION["username"] ?? "Player";
 
 $totalQuestions = 10;
-$questionTimeLimit = 45;
+$questionTimeLimit = 30;
 
 
 /*

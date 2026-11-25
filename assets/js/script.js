@@ -3,14 +3,14 @@
  * Handles:
  *  - Password visibility toggles (login / register)
  *  - Asynchronous puzzle submission via fetch() with partial DOM updates
- *  - 45-second per-question countdown timer with auto-submit on expiry
- *  - Web Audio API countdown ticking sounds (soft 45-6s, louder 5-1s, stop at 0)
+ *  - 30-second per-question countdown timer with auto-submit on expiry
+ *  - Web Audio API countdown ticking sounds (soft 30-6s, louder 5-1s, stop at 0)
  *  - Numeric keyboard shortcuts (0-9) for quick answer entry
  */
 (function () {
     "use strict";
 
-    var QUESTION_TIME_LIMIT = 45;
+    var QUESTION_TIME_LIMIT = 30;
     var activeTimerId = null;
     var audioCtx = null;
     var activeAudioNodes = [];
@@ -99,7 +99,7 @@
                 playTickPulse(ctx, now, 1100, 820, 0.55, 0.075, "triangle");
                 playTickPulse(ctx, now + 0.085, 1320, 980, 0.45, 0.07, "triangle");
             } else {
-                // Audible, soft tick for 45..6 seconds
+                // Audible, soft tick for 30..6 seconds
                 playTickPulse(ctx, now, 900, 620, 0.22, 0.07, "triangle");
             }
         } catch (e) {
