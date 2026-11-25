@@ -15,9 +15,10 @@
     var audioCtx = null;
     var activeAudioNodes = [];
     var audioUnlockBound = false;
+    var isResumingAudio = false;
 
     function getAudioContext() {
-        if (audioCtx) {
+        if (audioCtx && audioCtx.state !== "closed") {
             return audioCtx;
         }
         var AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -32,10 +33,37 @@
         return audioCtx;
     }
 
+    function unbindAudioUnlock() {
+        if (!audioUnlockBound) {
+            return;
+        }
+        audioUnlockBound = false;
+        ["pointerdown", "mousedown", "keydown", "touchstart", "click"].forEach(function (evtName) {
+            document.removeEventListener(evtName, unlockAudio, { capture: true });
+        });
+    }
+
     function unlockAudio() {
         var ctx = getAudioContext();
-        if (ctx && ctx.state === "suspended") {
-            ctx.resume().catch(function () {});
+        if (!ctx) {
+            return;
+        }
+        if (ctx.state === "running") {
+            unbindAudioUnlock();
+            return;
+        }
+        if (ctx.state === "suspended" && !isResumingAudio) {
+            isResumingAudio = true;
+            ctx.resume()
+                .then(function () {
+                    isResumingAudio = false;
+                    if (ctx.state === "running") {
+                        unbindAudioUnlock();
+                    }
+                })
+                .catch(function () {
+                    isResumingAudio = false;
+                });
         }
     }
 
@@ -109,20 +137,10 @@
 
     function playTickSound(isFinalFive) {
         var ctx = getAudioContext();
-        if (!ctx) {
+        if (!ctx || ctx.state !== "running") {
             return;
         }
-        if (ctx.state === "running") {
-            scheduleTickPulses(ctx, isFinalFive);
-            return;
-        }
-        if (ctx.state === "suspended") {
-            ctx.resume().then(function () {
-                if (ctx.state === "running" && activeTimerId !== null) {
-                    scheduleTickPulses(ctx, isFinalFive);
-                }
-            }).catch(function () {});
-        }
+        scheduleTickPulses(ctx, isFinalFive);
     }
 
     function initPasswordToggles() {
@@ -291,6 +309,7 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         bindAudioUnlock();
+        unlockAudio();
         initPasswordToggles();
         initGameArea();
         initKeyboardShortcuts();

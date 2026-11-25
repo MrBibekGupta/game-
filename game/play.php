@@ -715,6 +715,6 @@ if ($currentScore >= 8) {
 
 </main>
 
-<script src="../assets/js/script.js" defer></script>
+<script src="../assets/js/script.js?v=<?php echo filemtime(__DIR__ . '/../assets/js/script.js'); ?>" defer></script>
 </body>
 </html>
