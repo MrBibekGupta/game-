@@ -334,8 +334,8 @@ if (($playContent -match 'id="game-area"') -and ($playContent -match 'csrfInputF
     Record-Result "Gameplay server logic (game/play.php)" "FAIL"
 }
 
-if (($jsContent -match 'fetch\("play\.php"') -and ($jsContent -match 'QUESTION_TIME_LIMIT\s*=\s*40') -and ($jsContent -match 'setInterval') -and ($jsContent -match 'submitAnswerAsync\(true\)') -and ($jsContent -match 'keydown')) {
-    Record-Result "Event-driven JS (AJAX fetch, 40s countdown, auto-submit, 0-9 shortcuts)" "PASS" "All handlers verified in assets/js/script.js"
+if (($jsContent -match 'fetch\("play\.php"') -and ($jsContent -match 'QUESTION_TIME_LIMIT\s*=\s*45') -and ($jsContent -match 'setInterval') -and ($jsContent -match 'submitAnswerAsync\(true\)') -and ($jsContent -match 'keydown')) {
+    Record-Result "Event-driven JS (AJAX fetch, 45s countdown, auto-submit, 0-9 shortcuts)" "PASS" "All handlers verified in assets/js/script.js"
 } else {
     $gpFails++
     Record-Result "Event-driven JS features" "FAIL"

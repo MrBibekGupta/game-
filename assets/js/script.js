@@ -3,13 +3,13 @@
  * Handles:
  *  - Password visibility toggles (login / register)
  *  - Asynchronous puzzle submission via fetch() with partial DOM updates
- *  - 40-second per-question countdown timer with auto-submit on expiry
+ *  - 45-second per-question countdown timer with auto-submit on expiry
  *  - Numeric keyboard shortcuts (0-9) for quick answer entry
  */
 (function () {
     "use strict";
 
-    var QUESTION_TIME_LIMIT = 40;
+    var QUESTION_TIME_LIMIT = 45;
     var activeTimerId = null;
 
     function initPasswordToggles() {
