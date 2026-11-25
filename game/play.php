@@ -240,6 +240,26 @@ if (!$gameFinished) {
 $currentQuestion = (int) ($_SESSION["game_question"] ?? 1);
 $currentScore = (int) ($_SESSION["game_score"] ?? 0);
 $gameFinished = $_SESSION["game_finished"] ?? false;
+$displayScore = $currentScore;
+$displayTotal = $totalQuestions;
+
+if ($gameFinished) {
+    $finStmt = $conn->prepare("
+        SELECT score, total_questions
+        FROM game_sessions
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+    ");
+    $finStmt->bind_param("ii", $sessionId, $userId);
+    $finStmt->execute();
+    $finRow = $finStmt->get_result()->fetch_assoc();
+    $finStmt->close();
+    if ($finRow) {
+        $displayScore = (int) $finRow["score"];
+        $displayTotal = (int) $finRow["total_questions"];
+        $currentScore = $displayScore;
+    }
+}
 
 // Progress percentage
 $progress = (($currentQuestion - 1) / $totalQuestions) * 100;
@@ -606,6 +626,13 @@ if ($currentScore >= 8) {
 </header>
 
 <main class="main" id="game-area"<?php
+if ($gameFinished) {
+    echo ' data-game-finished="1"'
+        . ' data-session-id="' . (int) $sessionId . '"'
+        . ' data-player-name="' . htmlspecialchars($username, ENT_QUOTES, 'UTF-8') . '"'
+        . ' data-final-score="' . (int) $displayScore . '"'
+        . ' data-total-questions="' . (int) $displayTotal . '"';
+}
 if ($feedbackStatus !== "") {
     echo ' data-feedback-status="' . htmlspecialchars($feedbackStatus, ENT_QUOTES, 'UTF-8') . '"';
 }
@@ -647,11 +674,11 @@ if ($feedbackStatus === "incorrect" && $revealedAnswer !== null) {
 
             <div class="finished">
                 <div class="icon">🏆</div>
-                <h2>Game complete</h2>
-                <p><?php echo htmlspecialchars($finalMessage); ?>, <?php echo htmlspecialchars($username); ?>.</p>
+                <h2>Game Completed, <?php echo htmlspecialchars($username); ?>!</h2>
+                <p>You scored <?php echo $displayScore; ?> out of <?php echo $displayTotal; ?>.</p>
 
                 <div class="final-score">
-                    <?php echo $currentScore; ?><small>/<?php echo $totalQuestions; ?></small>
+                    <?php echo $displayScore; ?><small>/<?php echo $displayTotal; ?></small>
                 </div>
 
                 <div class="finished-actions">

@@ -262,11 +262,32 @@
     }
 
     function announceFeedbackFromDom(gameArea) {
+        var isFinished = gameArea.dataset.gameFinished === "1";
+        var sessionId = gameArea.dataset.sessionId || "";
+        var playerName = gameArea.dataset.playerName || "";
+        var finalScore = gameArea.dataset.finalScore;
+        var totalQuestions = gameArea.dataset.totalQuestions;
         var status = gameArea.dataset.feedbackStatus || "";
         var correctAnswer = gameArea.dataset.correctAnswer;
 
         delete gameArea.dataset.feedbackStatus;
         delete gameArea.dataset.correctAnswer;
+
+        if (isFinished && playerName !== "" && typeof finalScore !== "undefined" && typeof totalQuestions !== "undefined") {
+            var storageKey = sessionId ? ("announced_game_" + sessionId) : "";
+            try {
+                if (storageKey && window.sessionStorage && window.sessionStorage.getItem(storageKey) === "1") {
+                    return;
+                }
+                if (storageKey && window.sessionStorage) {
+                    window.sessionStorage.setItem(storageKey, "1");
+                }
+            } catch (e) {
+                // Ignore sessionStorage errors
+            }
+            speakFeedback("Game Completed, " + playerName + "! You scored " + finalScore + " out of " + totalQuestions + ".");
+            return;
+        }
 
         if (status === "correct") {
             speakFeedback("Correct! Great Job!");
@@ -348,14 +369,23 @@
 
                     if (nextGameArea) {
                         gameArea.innerHTML = nextGameArea.innerHTML;
-                        var nextStatus = nextGameArea.getAttribute("data-feedback-status") || "";
-                        var nextAnswer = nextGameArea.getAttribute("data-correct-answer");
-                        if (nextStatus !== "") {
-                            gameArea.dataset.feedbackStatus = nextStatus;
-                        }
-                        if (nextAnswer !== null && nextAnswer !== "") {
-                            gameArea.dataset.correctAnswer = nextAnswer;
-                        }
+                        [
+                            "data-game-finished",
+                            "data-session-id",
+                            "data-player-name",
+                            "data-final-score",
+                            "data-total-questions",
+                            "data-feedback-status",
+                            "data-correct-answer"
+                        ].forEach(function (attr) {
+                            var val = nextGameArea.getAttribute(attr);
+                            var key = attr.replace(/^data-/, "").replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); });
+                            if (val !== null && val !== "") {
+                                gameArea.dataset[key] = val;
+                            } else {
+                                delete gameArea.dataset[key];
+                            }
+                        });
                         initGameArea(true);
                     } else {
                         // Fallback if session expired and login page was returned
