@@ -4,6 +4,7 @@
  *  - Password visibility toggles (login / register)
  *  - Asynchronous puzzle submission via fetch() with partial DOM updates
  *  - 45-second per-question countdown timer with auto-submit on expiry
+ *  - Web Audio API countdown ticking sounds (soft 45-6s, louder 5-1s, stop at 0)
  *  - Numeric keyboard shortcuts (0-9) for quick answer entry
  */
 (function () {
@@ -11,6 +12,111 @@
 
     var QUESTION_TIME_LIMIT = 45;
     var activeTimerId = null;
+    var audioCtx = null;
+    var activeAudioNodes = [];
+    var audioUnlockBound = false;
+
+    function getAudioContext() {
+        if (audioCtx) {
+            return audioCtx;
+        }
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+            return null;
+        }
+        try {
+            audioCtx = new AudioCtx();
+        } catch (e) {
+            audioCtx = null;
+        }
+        return audioCtx;
+    }
+
+    function unlockAudio() {
+        var ctx = getAudioContext();
+        if (ctx && ctx.state === "suspended") {
+            ctx.resume().catch(function () {});
+        }
+    }
+
+    function bindAudioUnlock() {
+        if (audioUnlockBound) {
+            return;
+        }
+        audioUnlockBound = true;
+        ["pointerdown", "keydown", "click"].forEach(function (evtName) {
+            document.addEventListener(evtName, unlockAudio, { passive: true });
+        });
+    }
+
+    function stopAllSounds() {
+        while (activeAudioNodes.length > 0) {
+            var node = activeAudioNodes.pop();
+            try {
+                node.stop(0);
+                node.disconnect();
+            } catch (e) {
+                // Node already stopped or disconnected
+            }
+        }
+    }
+
+    function playTickPulse(ctx, startTime, freqStart, freqEnd, peakGain, duration, waveType) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+
+        osc.type = waveType;
+        osc.frequency.setValueAtTime(freqStart, startTime);
+        osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
+
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        activeAudioNodes.push(osc);
+        osc.onended = function () {
+            var idx = activeAudioNodes.indexOf(osc);
+            if (idx !== -1) {
+                activeAudioNodes.splice(idx, 1);
+            }
+            try {
+                gain.disconnect();
+            } catch (e) {}
+        };
+
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.01);
+    }
+
+    function playTickSound(isFinalFive) {
+        var ctx = getAudioContext();
+        if (!ctx) {
+            return;
+        }
+        if (ctx.state === "suspended") {
+            ctx.resume().catch(function () {});
+            if (ctx.state === "suspended") {
+                return;
+            }
+        }
+
+        try {
+            var now = ctx.currentTime;
+            if (isFinalFive) {
+                // Louder, urgent double-tick for final 5..1 seconds
+                playTickPulse(ctx, now, 1046, 784, 0.16, 0.05, "triangle");
+                playTickPulse(ctx, now + 0.065, 1318, 988, 0.14, 0.045, "triangle");
+            } else {
+                // Soft, subtle tick for 45..6 seconds
+                playTickPulse(ctx, now, 880, 660, 0.045, 0.04, "sine");
+            }
+        } catch (e) {
+            // Ignore audio scheduling errors
+        }
+    }
 
     function initPasswordToggles() {
         document.querySelectorAll(".toggle").forEach(function (btn) {
@@ -35,6 +141,7 @@
             clearInterval(activeTimerId);
             activeTimerId = null;
         }
+        stopAllSounds();
     }
 
     function initGameArea() {
@@ -145,6 +252,8 @@
                 if (remaining <= 0) {
                     clearQuestionTimer();
                     submitAnswerAsync(true);
+                } else {
+                    playTickSound(remaining <= 5);
                 }
             }, 1000);
         }
@@ -174,8 +283,12 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        bindAudioUnlock();
         initPasswordToggles();
         initGameArea();
         initKeyboardShortcuts();
     });
+
+    window.addEventListener("pagehide", clearQuestionTimer);
+    window.addEventListener("beforeunload", clearQuestionTimer);
 })();
