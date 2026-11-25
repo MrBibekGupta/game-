@@ -56,6 +56,8 @@ $gameFinished = $_SESSION["game_finished"] ?? false;
 $resultMessage = "";
 $resultType = "";
 $apiError = "";
+$feedbackStatus = "";
+$revealedAnswer = null;
 
 
 /*
@@ -105,6 +107,8 @@ if (
 
         // Save answer
         $correctValue = $isCorrect ? 1 : 0;
+        $feedbackStatus = $isCorrect ? "correct" : "incorrect";
+        $revealedAnswer = $isCorrect ? null : $correctAnswer;
 
         $stmt = $conn->prepare("
             INSERT INTO game_results
@@ -601,7 +605,14 @@ if ($currentScore >= 8) {
     </div>
 </header>
 
-<main class="main" id="game-area">
+<main class="main" id="game-area"<?php
+if ($feedbackStatus !== "") {
+    echo ' data-feedback-status="' . htmlspecialchars($feedbackStatus, ENT_QUOTES, 'UTF-8') . '"';
+}
+if ($feedbackStatus === "incorrect" && $revealedAnswer !== null) {
+    echo ' data-correct-answer="' . (int) $revealedAnswer . '"';
+}
+?>>
 
     <div class="top">
         <div>

@@ -5,6 +5,7 @@
  *  - Asynchronous puzzle submission via fetch() with partial DOM updates
  *  - 30-second per-question countdown timer with auto-submit on expiry
  *  - Web Audio API countdown ticking sounds (soft 30-6s, louder 5-1s, stop at 0)
+ *  - Web Speech API English voice feedback for correct/incorrect answers
  *  - Numeric keyboard shortcuts (0-9) for quick answer entry
  */
 (function () {
@@ -16,6 +17,9 @@
     var activeAudioNodes = [];
     var audioUnlockBound = false;
     var isResumingAudio = false;
+    var isSpeakingFeedback = false;
+    var selectedEnglishVoice = null;
+    var speechFallbackTimerId = null;
 
     function getAudioContext() {
         if (audioCtx && audioCtx.state !== "closed") {
@@ -163,6 +167,114 @@
         });
     }
 
+    function clearSpeechFallbackTimer() {
+        if (speechFallbackTimerId !== null) {
+            clearTimeout(speechFallbackTimerId);
+            speechFallbackTimerId = null;
+        }
+    }
+
+    function selectEnglishVoice() {
+        if (!("speechSynthesis" in window) || typeof window.speechSynthesis.getVoices !== "function") {
+            return null;
+        }
+        var voices = window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) {
+            return selectedEnglishVoice;
+        }
+
+        var preferred = null;
+        for (var i = 0; i < voices.length; i++) {
+            var lang = (voices[i].lang || "").toLowerCase();
+            if (lang === "en-us") {
+                preferred = voices[i];
+                break;
+            }
+            if (!preferred && lang.indexOf("en") === 0) {
+                preferred = voices[i];
+            }
+        }
+        selectedEnglishVoice = preferred || voices[0];
+        return selectedEnglishVoice;
+    }
+
+    function initSpeechVoices() {
+        if (!("speechSynthesis" in window)) {
+            return;
+        }
+        selectEnglishVoice();
+        if (typeof window.speechSynthesis.onvoiceschanged !== "undefined") {
+            window.speechSynthesis.onvoiceschanged = selectEnglishVoice;
+        }
+    }
+
+    function stopSpeech() {
+        clearSpeechFallbackTimer();
+        isSpeakingFeedback = false;
+        if ("speechSynthesis" in window) {
+            try {
+                window.speechSynthesis.cancel();
+            } catch (e) {
+                // Ignore speech cancellation errors
+            }
+        }
+    }
+
+    function speakFeedback(text) {
+        if (!text || !("speechSynthesis" in window) || typeof window.SpeechSynthesisUtterance !== "function") {
+            isSpeakingFeedback = false;
+            return;
+        }
+
+        stopSpeech();
+        isSpeakingFeedback = true;
+
+        try {
+            var utterance = new SpeechSynthesisUtterance(text);
+            var voice = selectEnglishVoice();
+            utterance.lang = "en-US";
+            if (voice) {
+                utterance.voice = voice;
+            }
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            var finished = false;
+            function finishSpeech() {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                clearSpeechFallbackTimer();
+                isSpeakingFeedback = false;
+            }
+
+            utterance.onend = finishSpeech;
+            utterance.onerror = finishSpeech;
+            speechFallbackTimerId = setTimeout(finishSpeech, 4500);
+
+            window.speechSynthesis.speak(utterance);
+        } catch (e) {
+            isSpeakingFeedback = false;
+            clearSpeechFallbackTimer();
+        }
+    }
+
+    function announceFeedbackFromDom(gameArea) {
+        var status = gameArea.dataset.feedbackStatus || "";
+        var correctAnswer = gameArea.dataset.correctAnswer;
+
+        delete gameArea.dataset.feedbackStatus;
+        delete gameArea.dataset.correctAnswer;
+
+        if (status === "correct") {
+            speakFeedback("Correct! Great Job!");
+        } else if (status === "incorrect" && typeof correctAnswer !== "undefined" && correctAnswer !== "") {
+            speakFeedback("Incorrect! The correct answer is " + correctAnswer + ".");
+        }
+    }
+
     function clearQuestionTimer() {
         if (activeTimerId !== null) {
             clearInterval(activeTimerId);
@@ -171,13 +283,20 @@
         stopAllSounds();
     }
 
-    function initGameArea() {
+    function initGameArea(shouldSpeakFeedback) {
         var gameArea = document.getElementById("game-area");
         if (!gameArea) {
             return;
         }
 
         clearQuestionTimer();
+
+        if (shouldSpeakFeedback) {
+            announceFeedbackFromDom(gameArea);
+        } else {
+            delete gameArea.dataset.feedbackStatus;
+            delete gameArea.dataset.correctAnswer;
+        }
 
         var form = gameArea.querySelector(".answer-form");
         var answerInput = gameArea.querySelector("#answer");
@@ -195,6 +314,7 @@
             }
             isSubmitting = true;
             clearQuestionTimer();
+            stopSpeech();
 
             var formData = new FormData(form);
             if (isTimeout) {
@@ -228,7 +348,15 @@
 
                     if (nextGameArea) {
                         gameArea.innerHTML = nextGameArea.innerHTML;
-                        initGameArea();
+                        var nextStatus = nextGameArea.getAttribute("data-feedback-status") || "";
+                        var nextAnswer = nextGameArea.getAttribute("data-correct-answer");
+                        if (nextStatus !== "") {
+                            gameArea.dataset.feedbackStatus = nextStatus;
+                        }
+                        if (nextAnswer !== null && nextAnswer !== "") {
+                            gameArea.dataset.correctAnswer = nextAnswer;
+                        }
+                        initGameArea(true);
                     } else {
                         // Fallback if session expired and login page was returned
                         window.location.reload();
@@ -279,7 +407,7 @@
                 if (remaining <= 0) {
                     clearQuestionTimer();
                     submitAnswerAsync(true);
-                } else {
+                } else if (!isSpeakingFeedback) {
                     playTickSound(remaining <= 5);
                 }
             }, 1000);
@@ -312,11 +440,17 @@
     document.addEventListener("DOMContentLoaded", function () {
         bindAudioUnlock();
         unlockAudio();
+        initSpeechVoices();
         initPasswordToggles();
-        initGameArea();
+        initGameArea(false);
         initKeyboardShortcuts();
     });
 
-    window.addEventListener("pagehide", clearQuestionTimer);
-    window.addEventListener("beforeunload", clearQuestionTimer);
+    function cleanupAllMedia() {
+        clearQuestionTimer();
+        stopSpeech();
+    }
+
+    window.addEventListener("pagehide", cleanupAllMedia);
+    window.addEventListener("beforeunload", cleanupAllMedia);
 })();
