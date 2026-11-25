@@ -564,7 +564,10 @@ $playLink = $isLoggedIn ? "game/play.php" : "auth/register.php";
             <?php if ($isLoggedIn): ?>
                 <a href="game/profile.php">Profile</a>
                 <a href="game/play.php">Play game</a>
-                <a href="auth/logout.php">Log out</a>
+                <form method="POST" action="auth/logout.php" style="display:inline;margin:0;">
+                    <?php echo csrfInputField(); ?>
+                    <button type="submit" style="background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;">Log out</button>
+                </form>
             <?php else: ?>
                 <a href="auth/login.php">Log in</a>
                 <a href="auth/register.php">Register</a>

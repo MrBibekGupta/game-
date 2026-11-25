@@ -235,7 +235,10 @@ $result = $conn->query($sql);
         <nav class="nav-links" aria-label="Main">
             <?php if ($isLoggedIn): ?>
                 <a href="profile.php" class="btn btn-link">Profile</a>
-                <a href="../auth/logout.php" class="btn btn-link btn-hide-sm">Log out</a>
+                <form method="POST" action="../auth/logout.php" class="btn-hide-sm" style="display:inline;margin:0;">
+                    <?php echo csrfInputField(); ?>
+                    <button type="submit" class="btn btn-link" style="background:none;border:0;cursor:pointer;">Log out</button>
+                </form>
                 <a href="play.php" class="btn btn-yellow">Play game</a>
             <?php else: ?>
                 <a href="../index.php" class="btn btn-link btn-hide-sm">Home</a>

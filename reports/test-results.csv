@@ -1,0 +1,22 @@
+TestID,Category,TestName,Method,Expected,Actual,Status
+TC-01,PHP Syntax,Lint all 13 PHP files,php -l,0 syntax errors,13/13 passed,PASS
+TC-02,JavaScript,Syntax check script.js,node --check,0 syntax errors,0 syntax errors,PASS
+TC-03,API,Live Banana API request,PHP CLI cURL,HTTP 200 valid JSON,success=true cached=false,PASS
+TC-04,API,Cache file persistence,File check,cache/last_puzzle.json exists,Valid JSON cached,PASS
+TC-05,API,Fallback on unreachable API,PHP CLI simulated failure,Returns cached puzzle,success=true cached=true,PASS
+TC-06,API,Error handling with no cache,PHP CLI missing cache,Clean error message,success=false error returned,PASS
+TC-07,Security,Cache HTTP access denied,HTTP GET cache/last_puzzle.json,HTTP 403 Forbidden,HTTP 403 after cache/.htaccess,PASS
+TC-08,Database,MySQL schema and foreign keys,SHOW CREATE TABLE,3 tables with cascade FKs,users/game_sessions/game_results verified,PASS
+TC-09,Security,Session cookie HttpOnly & SameSite,session_get_cookie_params(),HttpOnly=true SameSite=Strict,HttpOnly=true SameSite=Strict,PASS
+TC-10,Security,CSRF token validation,verifyCsrfToken() & HTTP POST,Valid=true Invalid=false,Verified CLI and HTTP POST,PASS
+TC-11,Security,Password hashing verification,password_hash/password_verify,Valid=true Wrong=false,Verified,PASS
+TC-12,Security,Login rate limiting (5 attempts),HTTP POST brute-force sim,Lockout after 5 failures,Lockout message triggered,PASS
+TC-13,Security,Guest route protection,HTTP GET unauthenticated,302 redirect to login.php,302 returned for play/profile/new_game,PASS
+TC-14,Auth,Registration and login flow,HTTP POST end-to-end,Account created & redirected,REGISTER_OK=True LOGIN_LANDED_ON_PLAY=True,PASS
+TC-15,Gameplay,Answer submit timeout and reset,HTTP POST play.php & new_game.php,Q1->Q2->Q3 and reset to Q1,All transitions verified,PASS
+TC-16,Gameplay,Profile and leaderboard pages,HTTP GET authenticated,HTTP 200 with user stats,HTTP 200 with user stats,PASS
+TC-17,Auth,POST+CSRF logout and session invalidation,Real Chrome Playwright POST logout,POST logout -> 302 & session cleared,POST auth/logout.php -> 302 to index.php,PASS
+TC-21,Security,Persistent IP+account rate-limit across cleared cookies,HTTP POST multi-session test,Lockout persists without cookies,COOKIE_CLEAR_BYPASS_BLOCKED=True rate_limit.json=403,PASS
+TC-18,Frontend,Browser visual responsive & console check,Real Chrome Playwright (1280x800 & 375x812),0 console errors and 0 horizontal overflow,overflow=False broken_imgs=0 console_errors=0,PASS
+TC-19,Event-Driven,Live browser fetch 30s timer auto-timeout and 0-9 keys,Real Chrome Playwright,No reload + timer tick + auto-submit at 0,ALIVE_WITHOUT_RELOAD status=200 timer_reset=30 Time expired!,PASS
+TC-20,Git,Branch sync development == origin,git rev-parse & status,Local matches origin/development,Synced at 8511859,PASS

@@ -11,14 +11,65 @@ if (isset($_SESSION["user_id"])) {
 
 $error = "";
 
+function getRateLimitFilePath(): string
+{
+    return __DIR__ . "/../cache/rate_limit.json";
+}
+
+function loadRateLimits(): array
+{
+    $file = getRateLimitFilePath();
+    if (!is_file($file) || !is_readable($file)) {
+        return [];
+    }
+    $data = json_decode((string) @file_get_contents($file), true);
+    return is_array($data) ? $data : [];
+}
+
+function saveRateLimits(array $data): void
+{
+    $file = getRateLimitFilePath();
+    $dir = dirname($file);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $now = time();
+    foreach ($data as $k => $entry) {
+        if (!is_array($entry) || (($entry["lockout_until"] ?? 0) < $now && ($entry["updated_at"] ?? 0) < ($now - 3600))) {
+            unset($data[$k]);
+        }
+    }
+    @file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT), LOCK_EX);
+}
+
+function getLoginRateKeys(string $login): array
+{
+    $ip = $_SERVER["REMOTE_ADDR"] ?? "unknown";
+    $normalizedLogin = strtolower(trim($login));
+    return [
+        "acct" => hash("sha256", "acct|" . $ip . "|" . $normalizedLogin),
+        "ip" => hash("sha256", "ip|" . $ip)
+    ];
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $maxAttempts = 5;
+    $maxIpAttempts = 15;
     $lockoutSeconds = 900; // 15 minutes
     $now = time();
 
-    if (isset($_SESSION["lockout_until"]) && $now < (int) $_SESSION["lockout_until"]) {
-        $remainingMinutes = (int) ceil(((int) $_SESSION["lockout_until"] - $now) / 60);
+    $submittedLogin = trim($_POST["login"] ?? "");
+    $rateKeys = getLoginRateKeys($submittedLogin);
+    $rateLimits = loadRateLimits();
+
+    $acctLockUntil = (int) ($rateLimits[$rateKeys["acct"]]["lockout_until"] ?? 0);
+    $ipLockUntil = (int) ($rateLimits[$rateKeys["ip"]]["lockout_until"] ?? 0);
+    $sessionLockUntil = (int) ($_SESSION["lockout_until"] ?? 0);
+    $effectiveLockUntil = max($acctLockUntil, $ipLockUntil, $sessionLockUntil);
+
+    if ($effectiveLockUntil > $now) {
+        $remainingMinutes = (int) ceil(($effectiveLockUntil - $now) / 60);
         $error = "Too many failed login attempts. Try again in " . $remainingMinutes . " minute(s).";
     } elseif (!verifyCsrfToken($_POST["csrf_token"] ?? null)) {
         $error = "Invalid security token. Please refresh the page and try again.";
@@ -28,7 +79,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $_SESSION["login_attempts"] = 0;
         }
 
-        $login = trim($_POST["login"] ?? "");
+        $login = $submittedLogin;
         $password = $_POST["password"] ?? "";
 
         if ($login === "" || $password === "") {
@@ -53,6 +104,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 $_SESSION["login_attempts"] = 0;
                 unset($_SESSION["lockout_until"]);
+                unset($rateLimits[$rateKeys["acct"]]);
+                saveRateLimits($rateLimits);
 
                 session_regenerate_id(true);
 
@@ -65,7 +118,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $_SESSION["login_attempts"] = (int) ($_SESSION["login_attempts"] ?? 0) + 1;
-            if ($_SESSION["login_attempts"] >= $maxAttempts) {
+
+            $acctAttempts = (int) ($rateLimits[$rateKeys["acct"]]["attempts"] ?? 0) + 1;
+            $ipAttempts = (int) ($rateLimits[$rateKeys["ip"]]["attempts"] ?? 0) + 1;
+
+            $rateLimits[$rateKeys["acct"]] = [
+                "attempts" => $acctAttempts,
+                "lockout_until" => $acctAttempts >= $maxAttempts ? ($now + $lockoutSeconds) : 0,
+                "updated_at" => $now
+            ];
+            $rateLimits[$rateKeys["ip"]] = [
+                "attempts" => $ipAttempts,
+                "lockout_until" => $ipAttempts >= $maxIpAttempts ? ($now + $lockoutSeconds) : 0,
+                "updated_at" => $now
+            ];
+            saveRateLimits($rateLimits);
+
+            if ($_SESSION["login_attempts"] >= $maxAttempts || $acctAttempts >= $maxAttempts || $ipAttempts >= $maxIpAttempts) {
                 $_SESSION["lockout_until"] = $now + $lockoutSeconds;
                 $error = "Too many failed login attempts. Try again in 15 minutes.";
             } else {

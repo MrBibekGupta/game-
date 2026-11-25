@@ -402,9 +402,10 @@ $initial = strtoupper(substr($user["username"], 0, 1));
                 Profile
             </a>
 
-            <a href="../auth/logout.php" class="logout">
-                Logout
-            </a>
+            <form method="POST" action="../auth/logout.php" style="display:inline;margin:0;">
+                <?php echo csrfInputField(); ?>
+                <button type="submit" class="logout" style="border:0;font-family:inherit;font-size:14px;font-weight:600;padding:9px 13px;border-radius:8px;cursor:pointer;">Logout</button>
+            </form>
 
         </nav>
 

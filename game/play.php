@@ -559,7 +559,10 @@ if ($currentScore >= 8) {
             <span class="who"><?php echo htmlspecialchars($username); ?></span>
             <a href="leaderboard.php" class="nav-link">Leaderboard</a>
             <a href="profile.php" class="nav-link">Profile</a>
-            <a href="../auth/logout.php" class="nav-link">Log out</a>
+            <form method="POST" action="../auth/logout.php" style="display:inline;margin:0;">
+                <?php echo csrfInputField(); ?>
+                <button type="submit" class="nav-link" style="background:none;border:0;font:inherit;cursor:pointer;">Log out</button>
+            </form>
         </nav>
 
     </div>
