@@ -20,6 +20,7 @@
     var isSpeakingFeedback = false;
     var selectedEnglishVoice = null;
     var speechFallbackTimerId = null;
+    var speechPauseTimerId = null;
 
     function getAudioContext() {
         if (audioCtx && audioCtx.state !== "closed") {
@@ -210,6 +211,10 @@
 
     function stopSpeech() {
         clearSpeechFallbackTimer();
+        if (speechPauseTimerId !== null) {
+            clearTimeout(speechPauseTimerId);
+            speechPauseTimerId = null;
+        }
         isSpeakingFeedback = false;
         if ("speechSynthesis" in window) {
             try {
@@ -220,9 +225,12 @@
         }
     }
 
-    function speakFeedback(text) {
+    function speakFeedback(text, onDone) {
         if (!text || !("speechSynthesis" in window) || typeof window.SpeechSynthesisUtterance !== "function") {
             isSpeakingFeedback = false;
+            if (typeof onDone === "function") {
+                onDone();
+            }
             return;
         }
 
@@ -248,6 +256,9 @@
                 finished = true;
                 clearSpeechFallbackTimer();
                 isSpeakingFeedback = false;
+                if (typeof onDone === "function") {
+                    onDone();
+                }
             }
 
             utterance.onend = finishSpeech;
@@ -258,6 +269,9 @@
         } catch (e) {
             isSpeakingFeedback = false;
             clearSpeechFallbackTimer();
+            if (typeof onDone === "function") {
+                onDone();
+            }
         }
     }
 
@@ -285,7 +299,14 @@
             } catch (e) {
                 // Ignore sessionStorage errors
             }
-            speakFeedback("Game Completed, " + playerName + "! You scored " + finalScore + " out of " + totalQuestions + ".");
+            var line1 = "Game Completed, " + playerName + "!";
+            var line2 = "You scored " + finalScore + " out of " + totalQuestions + ".";
+            speakFeedback(line1, function () {
+                speechPauseTimerId = setTimeout(function () {
+                    speechPauseTimerId = null;
+                    speakFeedback(line2);
+                }, 500);
+            });
             return;
         }
 
