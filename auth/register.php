@@ -1,6 +1,6 @@
 <?php
 
-session_start();
+require_once __DIR__ . '/../includes/session_init.php';
 
 require_once __DIR__ . "/../config/db.php";
 
@@ -15,6 +15,10 @@ $error = "";
 $success = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+
+    if (!verifyCsrfToken($_POST["csrf_token"] ?? null)) {
+        $error = "Invalid security token. Please refresh the page and try again.";
+    } else {
 
     $username = trim($_POST["username"] ?? "");
     $email = trim($_POST["email"] ?? "");
@@ -69,6 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $insertStmt->close();
         }
+    }
     }
 }
 ?>
@@ -348,6 +353,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <?php endif; ?>
 
                 <form method="POST" action="">
+                    <?php echo csrfInputField(); ?>
 
                     <div class="field">
                         <label for="username">Username</label>

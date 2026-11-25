@@ -1,6 +1,6 @@
 <?php
 
-session_start();
+require_once __DIR__ . '/../includes/session_init.php';
 
 require_once "../config/db.php";
 
@@ -13,40 +13,65 @@ $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $login = trim($_POST["login"] ?? "");
-    $password = $_POST["password"] ?? "";
+    $maxAttempts = 5;
+    $lockoutSeconds = 900; // 15 minutes
+    $now = time();
 
-    if ($login === "" || $password === "") {
-        $error = "Enter your username or email and your password.";
+    if (isset($_SESSION["lockout_until"]) && $now < (int) $_SESSION["lockout_until"]) {
+        $remainingMinutes = (int) ceil(((int) $_SESSION["lockout_until"] - $now) / 60);
+        $error = "Too many failed login attempts. Try again in " . $remainingMinutes . " minute(s).";
+    } elseif (!verifyCsrfToken($_POST["csrf_token"] ?? null)) {
+        $error = "Invalid security token. Please refresh the page and try again.";
     } else {
-
-        $stmt = $conn->prepare(
-            "SELECT id, username, email, password
-             FROM users
-             WHERE username = ? OR email = ?
-             LIMIT 1"
-        );
-
-        $stmt->bind_param("ss", $login, $login);
-        $stmt->execute();
-
-        $result = $stmt->get_result();
-        $user = $result->num_rows === 1 ? $result->fetch_assoc() : null;
-        $stmt->close();
-
-        if ($user && password_verify($password, $user["password"])) {
-
-            session_regenerate_id(true);
-
-            $_SESSION["user_id"] = $user["id"];
-            $_SESSION["username"] = $user["username"];
-            $_SESSION["email"] = $user["email"];
-
-            header("Location: ../game/play.php");
-            exit;
+        if (isset($_SESSION["lockout_until"]) && $now >= (int) $_SESSION["lockout_until"]) {
+            unset($_SESSION["lockout_until"]);
+            $_SESSION["login_attempts"] = 0;
         }
 
-        $error = "Username, email or password is incorrect.";
+        $login = trim($_POST["login"] ?? "");
+        $password = $_POST["password"] ?? "";
+
+        if ($login === "" || $password === "") {
+            $error = "Enter your username or email and your password.";
+        } else {
+
+            $stmt = $conn->prepare(
+                "SELECT id, username, email, password
+                 FROM users
+                 WHERE username = ? OR email = ?
+                 LIMIT 1"
+            );
+
+            $stmt->bind_param("ss", $login, $login);
+            $stmt->execute();
+
+            $result = $stmt->get_result();
+            $user = $result->num_rows === 1 ? $result->fetch_assoc() : null;
+            $stmt->close();
+
+            if ($user && password_verify($password, $user["password"])) {
+
+                $_SESSION["login_attempts"] = 0;
+                unset($_SESSION["lockout_until"]);
+
+                session_regenerate_id(true);
+
+                $_SESSION["user_id"] = $user["id"];
+                $_SESSION["username"] = $user["username"];
+                $_SESSION["email"] = $user["email"];
+
+                header("Location: ../game/play.php");
+                exit;
+            }
+
+            $_SESSION["login_attempts"] = (int) ($_SESSION["login_attempts"] ?? 0) + 1;
+            if ($_SESSION["login_attempts"] >= $maxAttempts) {
+                $_SESSION["lockout_until"] = $now + $lockoutSeconds;
+                $error = "Too many failed login attempts. Try again in 15 minutes.";
+            } else {
+                $error = "Username, email or password is incorrect.";
+            }
+        }
     }
 }
 ?>
@@ -321,6 +346,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <?php endif; ?>
 
                 <form method="POST" action="">
+                    <?php echo csrfInputField(); ?>
 
                     <div class="field">
                         <label for="login">Username or email</label>

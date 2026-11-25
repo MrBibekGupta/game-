@@ -1,6 +1,6 @@
 <?php
 
-session_start();
+require_once __DIR__ . '/includes/session_init.php';
 
 $isLoggedIn = isset($_SESSION["user_id"]);
 $playLink = $isLoggedIn ? "game/play.php" : "auth/register.php";

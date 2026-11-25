@@ -1,6 +1,6 @@
 <?php
 
-session_start();
+require_once __DIR__ . '/../includes/session_init.php';
 
 require_once "../config/db.php";
 require_once "../includes/api.php";
@@ -67,6 +67,11 @@ if (
     (isset($_POST["answer"]) || isset($_POST["timeout"])) &&
     !$gameFinished
 ) {
+
+    if (!verifyCsrfToken($_POST["csrf_token"] ?? null)) {
+        $resultMessage = "Invalid security token. Please refresh the page and try again.";
+        $resultType = "error";
+    } else {
 
     $isTimeout = isset($_POST["timeout"]) && $_POST["timeout"] === "1";
     $rawAnswer = trim($_POST["answer"] ?? "");
@@ -186,6 +191,7 @@ if (
 
             $resultType = $isCorrect ? "success" : "error";
         }
+    }
     }
 }
 
@@ -644,6 +650,7 @@ if ($currentScore >= 8) {
                     </div>
 
                     <form method="POST" class="answer-form">
+                        <?php echo csrfInputField(); ?>
 
                         <label for="answer">Your answer</label>
 
