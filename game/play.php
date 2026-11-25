@@ -64,11 +64,15 @@ $apiError = "";
 
 if (
     $_SERVER["REQUEST_METHOD"] === "POST" &&
-    isset($_POST["answer"]) &&
+    (isset($_POST["answer"]) || isset($_POST["timeout"])) &&
     !$gameFinished
 ) {
 
-    $userAnswer = filter_var($_POST["answer"], FILTER_VALIDATE_INT);
+    $isTimeout = isset($_POST["timeout"]) && $_POST["timeout"] === "1";
+    $rawAnswer = trim($_POST["answer"] ?? "");
+    $userAnswer = $rawAnswer === "" && $isTimeout
+        ? -1
+        : filter_var($rawAnswer, FILTER_VALIDATE_INT);
 
     if ($userAnswer === false) {
 
@@ -176,7 +180,9 @@ if (
 
             $resultMessage = $isCorrect
                 ? "Correct! Great job."
-                : "Incorrect. The correct answer was " . $correctAnswer . ".";
+                : ($isTimeout && $rawAnswer === ""
+                    ? "Time expired! The correct answer was " . $correctAnswer . "."
+                    : "Incorrect. The correct answer was " . $correctAnswer . ".");
 
             $resultType = $isCorrect ? "success" : "error";
         }
@@ -394,6 +400,27 @@ if ($currentScore >= 8) {
             font-weight: 700;
         }
 
+        .card-badges {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .timer-badge {
+            background: #f4f1e6;
+            color: var(--ink);
+            padding: 5px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .timer-badge.warning {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
         .alert {
             padding: 12px 14px;
             border-radius: 10px;
@@ -532,7 +559,7 @@ if ($currentScore >= 8) {
     </div>
 </header>
 
-<main class="main">
+<main class="main" id="game-area">
 
     <div class="top">
         <div>
@@ -585,7 +612,10 @@ if ($currentScore >= 8) {
 
             <div class="card-head">
                 <span class="q-label">Question <?php echo $currentQuestion; ?></span>
-                <span class="tag">🍌 Challenge</span>
+                <div class="card-badges">
+                    <span class="timer-badge" id="timer-badge" aria-live="polite">⏱ <span id="timer-seconds">30</span>s</span>
+                    <span class="tag">🍌 Challenge</span>
+                </div>
             </div>
 
             <?php if ($resultMessage !== ""): ?>
@@ -642,5 +672,6 @@ if ($currentScore >= 8) {
 
 </main>
 
+<script src="../assets/js/script.js" defer></script>
 </body>
 </html>
