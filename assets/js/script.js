@@ -44,8 +44,8 @@
             return;
         }
         audioUnlockBound = true;
-        ["pointerdown", "keydown", "click"].forEach(function (evtName) {
-            document.addEventListener(evtName, unlockAudio, { passive: true });
+        ["pointerdown", "mousedown", "keydown", "touchstart", "click"].forEach(function (evtName) {
+            document.addEventListener(evtName, unlockAudio, { capture: true, passive: true });
         });
     }
 
@@ -70,7 +70,7 @@
         osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
 
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.004);
+        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.005);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
         osc.connect(gain);
@@ -88,7 +88,23 @@
         };
 
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.01);
+        osc.stop(startTime + duration + 0.015);
+    }
+
+    function scheduleTickPulses(ctx, isFinalFive) {
+        try {
+            var now = ctx.currentTime;
+            if (isFinalFive) {
+                // Louder, urgent double-tick for final 5..1 seconds
+                playTickPulse(ctx, now, 1100, 820, 0.55, 0.075, "triangle");
+                playTickPulse(ctx, now + 0.085, 1320, 980, 0.45, 0.07, "triangle");
+            } else {
+                // Audible, soft tick for 45..6 seconds
+                playTickPulse(ctx, now, 900, 620, 0.22, 0.07, "triangle");
+            }
+        } catch (e) {
+            // Ignore audio scheduling errors
+        }
     }
 
     function playTickSound(isFinalFive) {
@@ -96,25 +112,16 @@
         if (!ctx) {
             return;
         }
-        if (ctx.state === "suspended") {
-            ctx.resume().catch(function () {});
-            if (ctx.state === "suspended") {
-                return;
-            }
+        if (ctx.state === "running") {
+            scheduleTickPulses(ctx, isFinalFive);
+            return;
         }
-
-        try {
-            var now = ctx.currentTime;
-            if (isFinalFive) {
-                // Louder, urgent double-tick for final 5..1 seconds
-                playTickPulse(ctx, now, 1046, 784, 0.16, 0.05, "triangle");
-                playTickPulse(ctx, now + 0.065, 1318, 988, 0.14, 0.045, "triangle");
-            } else {
-                // Soft, subtle tick for 45..6 seconds
-                playTickPulse(ctx, now, 880, 660, 0.045, 0.04, "sine");
-            }
-        } catch (e) {
-            // Ignore audio scheduling errors
+        if (ctx.state === "suspended") {
+            ctx.resume().then(function () {
+                if (ctx.state === "running" && activeTimerId !== null) {
+                    scheduleTickPulses(ctx, isFinalFive);
+                }
+            }).catch(function () {});
         }
     }
 
