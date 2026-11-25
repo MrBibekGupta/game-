@@ -5,7 +5,7 @@ function getBananaQuestion()
 {
     $apiUrl = "http://marcconrad.com/uob/banana/api.php?out=json&base64=no";
 
-    // Initialize cURL
+    //  cURL is tool php use to communicate with external server
     $curl = curl_init();
 
     curl_setopt_array($curl, [
@@ -24,7 +24,7 @@ function getBananaQuestion()
         ]
     ]);
 
-    // Send request
+    // php Send request
     $response = curl_exec($curl);
 
     // Check cURL error
