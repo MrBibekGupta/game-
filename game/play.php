@@ -412,22 +412,49 @@ if ($currentScore >= 8) {
         .card-badges {
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
             gap: 8px;
         }
 
         .timer-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             background: #f4f1e6;
             color: var(--ink);
-            padding: 5px 12px;
+            border: 2px solid #dcd3b8;
+            padding: 7px 15px;
             border-radius: 30px;
-            font-size: 12px;
+            font-size: 15px;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
+            box-shadow: 0 2px 6px rgba(31, 27, 18, 0.08);
+            transition: background-color .2s, border-color .2s, color .2s;
+        }
+
+        .timer-badge #timer-seconds {
+            font-size: 17px;
+            font-weight: 800;
+            line-height: 1;
         }
 
         .timer-badge.warning {
+            background: #fff3e0;
+            color: #c2410c;
+            border-color: #fb923c;
+        }
+
+        .timer-badge.critical {
             background: var(--danger-bg);
             color: var(--danger);
+            border-color: #ef4444;
+            animation: timerPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes timerPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(179, 38, 30, 0.18); }
+            50% { transform: scale(1.04); box-shadow: 0 4px 12px rgba(179, 38, 30, 0.32); }
         }
 
         .alert {
@@ -543,10 +570,13 @@ if ($currentScore >= 8) {
             .answer-row { flex-direction: column; }
             .btn { width: 100%; }
             .final-score { font-size: 52px; }
+            .timer-badge { padding: 6px 12px; font-size: 14px; }
+            .timer-badge #timer-seconds { font-size: 16px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
             .bar-fill { transition: none; }
+            .timer-badge.critical { animation: none; }
         }
     </style>
 </head>

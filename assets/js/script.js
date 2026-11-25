@@ -130,8 +130,16 @@
                 }
                 timerSecondsEl.textContent = String(remaining);
 
-                if (timerBadgeEl && remaining <= 10) {
-                    timerBadgeEl.classList.add("warning");
+                if (timerBadgeEl) {
+                    if (remaining <= 5) {
+                        timerBadgeEl.classList.remove("warning");
+                        timerBadgeEl.classList.add("critical");
+                    } else if (remaining <= 15) {
+                        timerBadgeEl.classList.remove("critical");
+                        timerBadgeEl.classList.add("warning");
+                    } else {
+                        timerBadgeEl.classList.remove("warning", "critical");
+                    }
                 }
 
                 if (remaining <= 0) {
