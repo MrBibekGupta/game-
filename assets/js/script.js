@@ -92,13 +92,15 @@
     function playTickPulse(ctx, startTime, freqStart, freqEnd, peakGain, duration, waveType) {
         var osc = ctx.createOscillator();
         var gain = ctx.createGain();
+        var sustainEnd = startTime + Math.min(0.035, duration * 0.35);
 
         osc.type = waveType;
         osc.frequency.setValueAtTime(freqStart, startTime);
         osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
 
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.005);
+        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.006);
+        gain.gain.setValueAtTime(peakGain, sustainEnd);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
         osc.connect(gain);
@@ -116,7 +118,7 @@
         };
 
         osc.start(startTime);
-        osc.stop(startTime + duration + 0.015);
+        osc.stop(startTime + duration + 0.02);
     }
 
     function scheduleTickPulses(ctx, isFinalFive) {
@@ -124,11 +126,11 @@
             var now = ctx.currentTime;
             if (isFinalFive) {
                 // Louder, urgent double-tick for final 5..1 seconds
-                playTickPulse(ctx, now, 1100, 820, 0.55, 0.075, "triangle");
-                playTickPulse(ctx, now + 0.085, 1320, 980, 0.45, 0.07, "triangle");
+                playTickPulse(ctx, now, 1200, 880, 0.78, 0.1, "triangle");
+                playTickPulse(ctx, now + 0.115, 1500, 1050, 0.68, 0.095, "triangle");
             } else {
-                // Audible, soft tick for 30..6 seconds
-                playTickPulse(ctx, now, 900, 620, 0.22, 0.07, "triangle");
+                // Clear, audible clock-like tick for 30..6 seconds
+                playTickPulse(ctx, now, 1000, 700, 0.38, 0.11, "triangle");
             }
         } catch (e) {
             // Ignore audio scheduling errors
