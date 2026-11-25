@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../includes/session_init.php';
+require_once __DIR__ . '/../config/app.php';
 
 require_once "../config/db.php";
 require_once "../includes/api.php";
@@ -15,6 +16,7 @@ $userId = (int) $_SESSION["user_id"];
 $username = $_SESSION["username"] ?? "Player";
 
 $totalQuestions = 10;
+$questionTimeLimit = 40;
 
 
 /*
@@ -219,6 +221,7 @@ if (!$gameFinished) {
 
             $_SESSION["banana_question"] = $apiResult["question"];
             $_SESSION["banana_solution"] = $apiResult["solution"];
+            logQuizDebugAnswer($currentQuestion, $apiResult["question"], $apiResult["solution"], $questionTimeLimit);
         }
     }
 }
@@ -622,7 +625,7 @@ if ($currentScore >= 8) {
             <div class="card-head">
                 <span class="q-label">Question <?php echo $currentQuestion; ?></span>
                 <div class="card-badges">
-                    <span class="timer-badge" id="timer-badge" aria-live="polite">⏱ <span id="timer-seconds">30</span>s</span>
+                    <span class="timer-badge" id="timer-badge" data-time-limit="<?php echo $questionTimeLimit; ?>" aria-live="polite">⏱ <span id="timer-seconds"><?php echo $questionTimeLimit; ?></span>s</span>
                     <span class="tag">🍌 Challenge</span>
                 </div>
             </div>

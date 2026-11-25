@@ -3,13 +3,13 @@
  * Handles:
  *  - Password visibility toggles (login / register)
  *  - Asynchronous puzzle submission via fetch() with partial DOM updates
- *  - 30-second per-question countdown timer with auto-submit on expiry
+ *  - 40-second per-question countdown timer with auto-submit on expiry
  *  - Numeric keyboard shortcuts (0-9) for quick answer entry
  */
 (function () {
     "use strict";
 
-    var QUESTION_TIME_LIMIT = 30;
+    var QUESTION_TIME_LIMIT = 40;
     var activeTimerId = null;
 
     function initPasswordToggles() {
@@ -119,7 +119,8 @@
         }
 
         if (form && timerSecondsEl) {
-            var remaining = QUESTION_TIME_LIMIT;
+            var configuredLimit = timerBadgeEl ? parseInt(timerBadgeEl.dataset.timeLimit, 10) : NaN;
+            var remaining = (!isNaN(configuredLimit) && configuredLimit > 0) ? configuredLimit : QUESTION_TIME_LIMIT;
             timerSecondsEl.textContent = String(remaining);
 
             activeTimerId = setInterval(function () {
